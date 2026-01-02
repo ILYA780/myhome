@@ -1,83 +1,83 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<title>myhome — поиск квартир рядом</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <meta charset="UTF-8">
+    <title>MyHome - поиск квартир рядом</title>
 
-<style>
-body {
-    margin: 0;
-    background: #000;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    color: white;
-}
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 24px;
-}
-.card {
-    background: #111;
-    border-radius: 24px;
-    padding: 24px;
-    margin-bottom: 24px;
-}
-h1 {
-    font-size: 32px;
-    font-weight: 600;
-}
-#map {
-    width: 100%;
-    height: 70vh;
-    border-radius: 20px;
-}
-</style>
+    <!-- Leaflet CSS и JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <!-- Стили -->
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            background-color: #000;
+            color: #fff;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 2em;
+        }
+
+        #map {
+            width: 90%;
+            height: 70vh;
+            margin: 0 auto 30px auto;
+            border-radius: 20px;
+        }
+
+        .leaflet-popup-content {
+            color: #000;
+        }
+    </style>
 </head>
-
 <body>
+    <h1>MyHome - поиск квартир рядом</h1>
+    <div id="map"></div>
 
-<div class="container">
-    <div class="card">
-        <h1>myhome — поиск квартир рядом</h1>
-    </div>
+    <script>
+        // Создаем карту Беларуси с начальным масштабом
+        const map = L.map('map').setView([53.9, 27.56], 6);
 
-    <div class="card">
-        <div id="map"></div>
-    </div>
-</div>
+        // Подключаем OpenStreetMap плитки
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-const map = L.map('map').setView([53.7098, 27.9534], 6);
+        // Проверяем поддержку геолокации
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap'
-}).addTo(map);
+                // Центрируем карту на пользователя
+                map.setView([lat, lng], 14);
 
-// Геолокация
-navigator.geolocation.getCurrentPosition(pos => {
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
+                // Маркер "Вы здесь"
+                L.marker([lat, lng]).addTo(map)
+                    .bindPopup("<b>Вы здесь</b>").openPopup();
 
-    map.setView([lat, lng], 14);
-    L.marker([lat, lng]).addTo(map).bindPopup("Вы здесь");
-
-    // Загрузка квартир с Python
-    fetch("/api/flats")
-        .then(res => res.json())
-        .then(flats => {
-            flats.forEach(flat => {
-                L.marker([flat.lat, flat.lng])
-                  .addTo(map)
-                  .bindPopup(
-                    <b>${flat.price}</b><br>📞 ${flat.contact}
-                  );
+                // Загружаем квартиры с API Flask
+                fetch("/api/flats")
+                    .then(res => res.json())
+                    .then(flats => {
+                        flats.forEach(flat => {
+                            L.marker([flat.lat, flat.lng])
+                                .addTo(map)
+                                .bindPopup(`<b>${flat.price}</b><br>📞 ${flat.contact}`);
+                        });
+                    })
+                    .catch(err => console.error("Ошибка загрузки квартир:", err));
+            }, err => {
+                alert("Не удалось получить вашу геолокацию: " + err.message);
             });
-        });
-});
-</script>
-
+        } else {
+            alert("Ваш браузер не поддерживает геолокацию");
+        }
+    </script>
 </body>
 </html>
