@@ -3,12 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>MyHome - поиск квартир рядом</title>
-
-    <!-- Leaflet CSS и JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-    <!-- Стили -->
     <style>
         body {
             margin: 0;
@@ -20,10 +16,8 @@
             min-height: 100vh;
             align-items: center;
         }
-
-        /* Закругленный заголовок-кнопка */
         .header {
-            background-color: #1c1c1e; /* темно-серый фон */
+            background-color: #1c1c1e;
             color: #fff;
             font-size: 2em;
             font-weight: 600;
@@ -33,15 +27,12 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.4);
             text-align: center;
         }
-
         #map {
             width: 90%;
             height: 70vh;
             border-radius: 20px;
             margin-bottom: 30px;
         }
-
-        /* Закругленная подпись внизу */
         .footer {
             background-color: #1c1c1e;
             color: #fff;
@@ -52,21 +43,14 @@
             text-align: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
-
-        /* Попап карты */
         .leaflet-popup-content {
             color: #000;
         }
     </style>
 </head>
 <body>
-    <!-- Заголовок -->
     <div class="header">MyHome - поиск квартир рядом</div>
-
-    <!-- Карта -->
     <div id="map"></div>
-
-    <!-- Подпись -->
     <div class="footer">
         Made from Ilya Gorbachevskiy<br>
         Inst: ilyagorbachevskiy<br>
@@ -75,7 +59,6 @@
 
     <script>
         const map = L.map('map').setView([53.9, 27.5667], 6);
-
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap'
         }).addTo(map);
@@ -84,7 +67,6 @@
             navigator.geolocation.getCurrentPosition(pos => {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
-
                 map.setView([lat, lng], 14);
 
                 L.marker([lat, lng]).addTo(map)
@@ -96,7 +78,7 @@
                         flats.forEach(flat => {
                             L.marker([flat.lat, flat.lng])
                                 .addTo(map)
-                                .bindPopup(`<b>${flat.price}</b><br>📞 ${flat.contact}`);
+                                .bindPopup(`<b>${flat.price}</b><br>${flat.address}<br>📞 ${flat.contact}`);
                         });
                     })
                     .catch(err => console.error("Ошибка загрузки квартир:", err));
