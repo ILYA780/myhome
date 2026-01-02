@@ -15,53 +15,81 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
             background-color: #000;
             color: #fff;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            align-items: center;
         }
 
-        h1 {
-            text-align: center;
-            margin: 20px 0;
+        /* Закругленный заголовок-кнопка */
+        .header {
+            background-color: #1c1c1e; /* темно-серый фон */
+            color: #fff;
             font-size: 2em;
+            font-weight: 600;
+            padding: 15px 30px;
+            border-radius: 25px;
+            margin: 20px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            text-align: center;
         }
 
         #map {
             width: 90%;
             height: 70vh;
-            margin: 0 auto 30px auto;
             border-radius: 20px;
+            margin-bottom: 30px;
         }
 
+        /* Закругленная подпись внизу */
+        .footer {
+            background-color: #1c1c1e;
+            color: #fff;
+            font-size: 1em;
+            padding: 15px 25px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        /* Попап карты */
         .leaflet-popup-content {
             color: #000;
         }
     </style>
 </head>
 <body>
-    <h1>MyHome - поиск квартир рядом</h1>
+    <!-- Заголовок -->
+    <div class="header">MyHome - поиск квартир рядом</div>
+
+    <!-- Карта -->
     <div id="map"></div>
 
-    <script>
-        // Создаем карту Беларуси с начальным масштабом
-        const map = L.map('map').setView([53.9, 27.56], 6);
+    <!-- Подпись -->
+    <div class="footer">
+        Made from Ilya Gorbachevskiy<br>
+        Inst: ilyagorbachevskiy<br>
+        Telegram: @IlyaGorbatevski
+    </div>
 
-        // Подключаем OpenStreetMap плитки
+    <script>
+        const map = L.map('map').setView([53.9, 27.5667], 6);
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap'
         }).addTo(map);
 
-        // Проверяем поддержку геолокации
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(pos => {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
 
-                // Центрируем карту на пользователя
                 map.setView([lat, lng], 14);
 
-                // Маркер "Вы здесь"
                 L.marker([lat, lng]).addTo(map)
                     .bindPopup("<b>Вы здесь</b>").openPopup();
 
-                // Загружаем квартиры с API Flask
                 fetch("/api/flats")
                     .then(res => res.json())
                     .then(flats => {
