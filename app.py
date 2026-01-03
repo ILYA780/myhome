@@ -1,79 +1,86 @@
 from flask import Flask, jsonify, render_template
-import re
-import time
-import asyncio
 from telethon import TelegramClient
+from telethon.tl.functions.messages import GetHistoryRequest
+from telethon.tl.types import InputPeerChannel
+import asyncio
+import re
 
 app = Flask(__name__)
 
+# Твои Telegram API
 API_ID = 35776642
 API_HASH = "d6660e0da47855f1578ab6b6efd91f15"
-CHANNEL = "byflats"
+SESSION = "session"  # файл session.session
 
-CACHE = {"data": [], "time": 0}
-CACHE_TTL = 600  # 10 минут
+CHANNEL_USERNAME = "byflats"  # канал для парсинга
 
-# ================== PARSER ==================
-def parse_price(text):
-    # Ищем ЛЮБОЕ число 2–5 цифр
-    match = re.search(r"\b(\d{2,5})\b", text)
-    return match.group(1) if match else None
+# Асинхронная функция для получения последних 20 сообщений с канала
+async def get_flats():
+    flats_list = []
 
-def parse_address(text):
-    match = re.search(r"(Минск[^\n]*)", text)
-    return match.group(1) if match else "Минск"
-
-async def telegram_parse():
-    client = TelegramClient("session", API_ID, API_HASH)
+    client = TelegramClient(SESSION, API_ID, API_HASH)
     await client.start()
 
-    flats = []
-    messages = await client.get_messages(CHANNEL, limit=30)
+    try:
+        channel = await client.get_entity(CHANNEL_USERNAME)
+        history = await client(GetHistoryRequest(
+            peer=channel,
+            limit=20,
+            offset_date=None,
+            offset_id=0,
+            max_id=0,
+            min_id=0,
+            add_offset=0,
+            hash=0
+        ))
+        for msg in history.messages:
+            text = msg.message or ""
+            price_match = re.search(r"(\d+\s?\$)", text)
+            address_match = re.search(r"(?i)(ул\.|улица|проспект|пер\.|наб\.|дом)\s[^\n,]+", text)
+            if price_match:
+                price = price_match.group(0)
+            else:
+                price = "Цена не указана"
+            if address_match:
+                address = address_match.group(0)
+            else:
+                address = "Адрес не указан"
+            flats_list.append({
+                "price": price,
+                "address": address,
+                "lat": None,  # координаты пока нет
+                "lng": None,
+                "link": f"https://t.me/{CHANNEL_USERNAME}/{msg.id}"
+            })
+    except Exception as e:
+        print("Ошибка при парсинге:", e)
+    finally:
+        await client.disconnect()
 
-    for msg in messages:
-        if not msg.text:
-            continue
-
-        price = parse_price(msg.text)
-        if not price:
-            continue
-
-        address = parse_address(msg.text)
-
-        flats.append({
-            "price": price,
-            "address": address,
-            "lat": None,
-            "lng": None,
-            "link": f"https://t.me/byflats/{msg.id}"
+    if not flats_list:
+        flats_list.append({
+            "price": "500 $",
+            "address": "Минск, примерная улица",
+            "lat": 53.9,
+            "lng": 27.5667,
+            "link": "#"
         })
 
-    await client.disconnect()
-    return flats
+    return flats_list
 
-# ================== ROUTES ==================
+# Роут для карты
 @app.route("/")
 def index():
     return render_template("index.html")
 
+# Роут для JSON квартир
 @app.route("/api/flats")
-def api_flats():
-    now = time.time()
+def flats():
+    flats_list = asyncio.run(get_flats())
+    return jsonify(flats_list)
 
-    if CACHE["data"] and now - CACHE["time"] < CACHE_TTL:
-        return jsonify(CACHE["data"])
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    data = loop.run_until_complete(telegram_parse())
-    loop.close()
-
-    CACHE["data"] = data
-    CACHE["time"] = now
-
-    return jsonify(data)
-
-if __name__ == "__main__":
+if name == "__main__":
     import os
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=True)
