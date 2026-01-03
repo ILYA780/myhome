@@ -11,7 +11,7 @@ API_HASH = "16bd530d2cffe0b722620fac49585fd0"
 SESSION = "session"  # session.session
 CHANNEL_USERNAME = "byflats"
 
-# Получаем последние 20 сообщений с канала
+# Асинхронная функция для получения квартир
 async def get_flats():
     flats_list = []
     client = TelegramClient(SESSION, API_ID, API_HASH)
@@ -31,15 +31,12 @@ async def get_flats():
 
         for msg in history.messages:
             text = msg.message or ""
-
-            # Ищем цену
             price_match = re.search(r"(\d+\s?\$)", text)
-            price = price_match.group(0) if price_match else "Цена не указана"
-
-            # Ищем адрес (если есть)
             address_match = re.search(r"(?i)(ул\.|улица|проспект|пер\.|наб\.|дом)\s[^\n,]+", text)
+            
+            price = price_match.group(0) if price_match else "Цена не указана"
             address = address_match.group(0) if address_match else "Адрес не указан"
-
+            
             flats_list.append({
                 "price": price,
                 "address": address,
@@ -54,14 +51,23 @@ async def get_flats():
     finally:
         await client.disconnect()
 
+    if not flats_list:
+        flats_list.append({
+            "price": "500 $",
+            "address": "Минск, примерная улица",
+            "lat": 53.9,
+            "lng": 27.5667,
+            "link": "#"
+        })
+
     return flats_list
 
-# Главная страница
+# Роут для страницы
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# JSON с квартирами
+# Роут для JSON
 @app.route("/api/flats")
 def flats():
     flats_list = asyncio.run(get_flats())
