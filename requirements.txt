@@ -1,5 +1,6 @@
 requests
 beautifulsoup4
-Flask==2.3.3
-telethon==1.31.2
-geopy==2.4.0
+Flask
+telethon
+geopy
+
