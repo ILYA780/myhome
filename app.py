@@ -1,121 +1,103 @@
-from flask import Flask, jsonify, render_template, request
-from telethon import TelegramClient
-from telethon.tl.functions.messages import GetHistoryRequest
-import re
-import math
+from flask import Flask, jsonify, render_template
 import asyncio
-import os
+import re
+from telethon import TelegramClient
+from geopy.geocoders import Nominatim
+import time
 
 app = Flask(__name__)
 
 # ===============================
-# TELEGRAM CONFIG (ФЕЙКОВЫЕ КЛЮЧИ)
+# Настройки Telegram
 # ===============================
 API_ID = 31174726
 API_HASH = "16bd530d2cffe0b722620fac49585fd0"
 CHANNEL = "byflats"
 
 # ===============================
-# CITY COORDINATES (Belarus)
+# Настройки геокодера
 # ===============================
-CITY_COORDS = {
-    "Минск": (53.9, 27.5667),
-    "Брест": (52.0976, 23.734),
-    "Гомель": (52.441, 30.987),
-    "Могилёв": (53.9, 30.33),
-    "Витебск": (55.19, 30.21),
-    "Гродно": (53.669, 23.813),
+geolocator = Nominatim(user_agent="myhome")
+DEFAULT_CITY = "Минск"
+
+# ===============================
+# Кэширование результатов
+# ===============================
+CACHE = {
+    "flats": [],
+    "time": 0
 }
+CACHE_TTL = 600  # 10 минут
 
 # ===============================
-# DISTANCE (Haversine)
+# Парсер сообщений
 # ===============================
-def distance_km(lat1, lon1, lat2, lon2):
-    R = 6371
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
+def parse_flat_text(text):
+    price = re.search(r"(\d{2,5}\s?\$)", text)
+    street = re.search(r"(ул\.?|пр\.?|проспект|улица)\s*[А-Яа-я0-9\s\-]+", text)
+    return {
+        "price": price.group(1) if price else None,
+        "address": street.group(0) if street else None
+    }
 
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(math.radians(lat1))
-        * math.cos(math.radians(lat2))
-        * math.sin(dlon / 2) ** 2
-    )
-    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+def geocode_address(address):
+    query = f"{DEFAULT_CITY}, {address}, Беларусь" if address else f"{DEFAULT_CITY}, Беларусь"
+    location = geolocator.geocode(query)
+    if location:
+        return location.latitude, location.longitude
+    return None, None
 
-
-# ===============================
-# TELEGRAM PARSER
-# ===============================
-async def parse_telegram():
+async def fetch_flats_from_telegram():
     client = TelegramClient("session", API_ID, API_HASH)
     await client.start()
 
     flats = []
+    messages = await client.get_messages(CHANNEL, limit=200)
 
-    history = await client(GetHistoryRequest(
-        peer=CHANNEL,
-        limit=50,
-        offset_date=None,
-        offset_id=0,
-        max_id=0,
-        min_id=0,
-        add_offset=0,
-        hash=0
-    ))
-
-    for msg in history.messages:
-        if not msg.message:
+    for msg in messages:
+        if not msg.text:
             continue
 
-        text = msg.message
+        data = parse_flat_text(msg.text)
+        if not data["price"]:
+            continue
 
-        price_match = re.search(r"(\d{2,4}\s?\$)", text)
-        city_match = re.search(
-            r"(Минск|Брест|Гомель|Могилёв|Витебск|Гродно)", text
-        )
+        lat, lng = geocode_address(data.get("address", ""))
 
-        if price_match and city_match:
-            city = city_match.group(0)
-            lat, lng = CITY_COORDS[city]
-
-            flats.append({
-                "lat": lat,
-                "lng": lng,
-                "price": price_match.group(1),
-                "contact": "Telegram @byflats"
-            })
+        flats.append({
+            "lat": lat,
+            "lng": lng,
+            "price": data["price"],
+            "contact": "Telegram @byflats",
+            "link": f"https://t.me/byflats/{msg.id}",
+            "address": f"{DEFAULT_CITY}, {data.get('address', '')}"
+        })
 
     await client.disconnect()
     return flats
 
-
 # ===============================
-# ROUTES
+# Flask routes
 # ===============================
 @app.route("/")
 def index():
     return render_template("index.html")
 
-
 @app.route("/api/flats")
-def flats():
-    user_lat = float(request.args.get("lat"))
-    user_lng = float(request.args.get("lng"))
+def api_flats():
+    now = time.time()
+    if CACHE["flats"] and (now - CACHE["time"] < CACHE_TTL):
+        return jsonify(CACHE["flats"])
 
-    flats_list = asyncio.run(parse_telegram())
-
-    nearby = []
-    for flat in flats_list:
-        if distance_km(user_lat, user_lng, flat["lat"], flat["lng"]) <= 3:
-            nearby.append(flat)
-
-    return jsonify(nearby)
-
+    flats = asyncio.run(fetch_flats_from_telegram())
+    CACHE["flats"] = flats
+    CACHE["time"] = now
+    return jsonify(flats)
 
 # ===============================
-# RUN
+# Запуск приложения
 # ===============================
 if __name__ == "__main__":
+    import os
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=True)
