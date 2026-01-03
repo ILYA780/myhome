@@ -17,23 +17,32 @@ geolocator = Nominatim(user_agent="myhome")
 DEFAULT_CITY = "Минск"
 
 # ================== CACHE ==================
-CACHE = {"data": [], "time": 0}
+CACHE = {
+    "data": [],
+    "time": 0
+}
 CACHE_TTL = 600  # 10 минут
 
 # ================== PARSER ==================
-def parse_flat_text(text):
-    price = re.search(r"(\d{2,5}\s?\$)", text)
-    street = re.search(r"(ул\.?|пр\.?|проспект|улица)\s*[А-Яа-я0-9\s\-]+", text)
-    return price.group(1) if price else None, street.group(0) if street else None
+def parse_price(text):
+    match = re.search(r"(\d{2,5}\s?\$)", text)
+    return match.group(1) if match else None
 
-def geocode(address):
+def parse_address(text):
+    # Берём любую строку, где упоминается Минск
+    match = re.search(r"(Минск[^\n]*)", text)
+    return match.group(1) if match else None
+
+def geocode_address(address):
+    if not address:
+        return None, None
     try:
-        q = f"{DEFAULT_CITY}, {address}, Беларусь" if address else f"{DEFAULT_CITY}, Беларусь"
-        loc = geolocator.geocode(q, timeout=10)
-        if loc:
-            return loc.latitude, loc.longitude
-    except:
-        pass
+        query = f"{address}, Беларусь"
+        location = geolocator.geocode(query, timeout=10)
+        if location:
+            return location.latitude, location.longitude
+    except Exception as e:
+        print("Geocode error:", e)
     return None, None
 
 async def telegram_parse():
@@ -47,17 +56,16 @@ async def telegram_parse():
         if not msg.text:
             continue
 
-        price, address = parse_flat_text(msg.text)
+        price = parse_price(msg.text)
         if not price:
             continue
 
-        lat, lng = geocode(address)
-        if not lat:
-            continue
+        address = parse_address(msg.text)
+        lat, lng = geocode_address(address)
 
         flats.append({
             "price": price,
-            "address": f"{DEFAULT_CITY}, {address or ''}",
+            "address": address or "Адрес не указан",
             "lat": lat,
             "lng": lng,
             "link": f"https://t.me/byflats/{msg.id}"
@@ -72,8 +80,9 @@ def index():
     return render_template("index.html")
 
 @app.route("/api/flats")
-def flats_api():
+def api_flats():
     now = time.time()
+
     if CACHE["data"] and now - CACHE["time"] < CACHE_TTL:
         return jsonify(CACHE["data"])
 
@@ -84,6 +93,7 @@ def flats_api():
 
     CACHE["data"] = data
     CACHE["time"] = now
+
     return jsonify(data)
 
 # ================== START ==================
