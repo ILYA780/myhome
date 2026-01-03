@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <title>MyHome - поиск квартир рядом</title>
+
+    <!-- Leaflet CSS и JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
     <style>
         body {
             margin: 0;
@@ -16,6 +19,7 @@
             min-height: 100vh;
             align-items: center;
         }
+
         .header {
             background-color: #1c1c1e;
             color: #fff;
@@ -27,12 +31,14 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.4);
             text-align: center;
         }
+
         #map {
             width: 90%;
             height: 70vh;
             border-radius: 20px;
             margin-bottom: 30px;
         }
+
         .footer {
             background-color: #1c1c1e;
             color: #fff;
@@ -43,6 +49,7 @@
             text-align: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
+
         .leaflet-popup-content {
             color: #000;
         }
@@ -58,7 +65,8 @@
     </div>
 
     <script>
-        const map = L.map('map').setView([53.9, 27.5667], 6);
+        const map = L.map('map').setView([53.9, 27.5667], 12);
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap'
         }).addTo(map);
@@ -67,18 +75,22 @@
             navigator.geolocation.getCurrentPosition(pos => {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
+
                 map.setView([lat, lng], 14);
 
                 L.marker([lat, lng]).addTo(map)
                     .bindPopup("<b>Вы здесь</b>").openPopup();
 
+                // Загружаем квартиры
                 fetch("/api/flats")
                     .then(res => res.json())
                     .then(flats => {
                         flats.forEach(flat => {
-                            L.marker([flat.lat, flat.lng])
-                                .addTo(map)
-                                .bindPopup(`<b>${flat.price}</b><br>${flat.address}<br>📞 ${flat.contact}`);
+                            if(flat.lat && flat.lng){
+                                L.marker([flat.lat, flat.lng])
+                                    .addTo(map)
+                                    .bindPopup(`<b>${flat.price}</b><br>📞 ${flat.contact}<br><a href="${flat.link}" target="_blank">Открыть объявление</a>`);
+                            }
                         });
                     })
                     .catch(err => console.error("Ошибка загрузки квартир:", err));
@@ -91,3 +103,4 @@
     </script>
 </body>
 </html>
+
