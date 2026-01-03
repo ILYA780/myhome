@@ -2,11 +2,11 @@ from flask import Flask, jsonify, render_template
 
 app = Flask(__name__)
 
-# Фиктивные квартиры для теста
+# Пример квартир
 FLATS = [
-    {"price": "450 $", "address": "Минск, Немига 3", "lat": None, "lng": None, "link": "#"},
-    {"price": "500 $", "address": "Минск, пр. Победителей 10", "lat": None, "lng": None, "link": "#"},
-    {"price": "400 $", "address": "Минск, ул. Первомайская 5", "lat": None, "lng": None, "link": "#"},
+    {"price": "450 $", "address": "Минск, Немига 3", "lat": 53.9, "lng": 27.5667, "link": "#"},
+    {"price": "500 $", "address": "Минск, пр. Победителей 10", "lat": 53.92, "lng": 27.55, "link": "#"},
+    {"price": "400 $", "address": "Минск, ул. Первомайская 5", "lat": 53.91, "lng": 27.56, "link": "#"},
 ]
 
 @app.route("/")
@@ -16,7 +16,6 @@ def index():
 @app.route("/api/flats")
 def flats():
     return jsonify(FLATS)
-
 
 if __name__ == "__main__":
     import os
