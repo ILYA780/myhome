@@ -30,20 +30,23 @@ async def get_flats():
         ))
 
         for msg in history.messages:
-            text = msg.message or ""
-            price_match = re.search(r"(\d+\s?\$)", text)
-            address_match = re.search(r"(?i)(ул\.|улица|проспект|пер\.|наб\.|дом)\s[^\n,]+", text)
-            
-            price = price_match.group(0) if price_match else "Цена не указана"
-            address = address_match.group(0) if address_match else "Адрес не указан"
-            
-            flats_list.append({
-                "price": price,
-                "address": address,
-                "lat": None,  # координаты пока нет
-                "lng": None,
-                "link": f"https://t.me/{CHANNEL_USERNAME}/{msg.id}"
-            })
+    text = msg.message or ""
+    
+    # Цена через regex, если есть
+    price_match = re.search(r"(\d+\s?\$)", text)
+    price = price_match.group(0) if price_match else "Цена не указана"
+    
+    # Адрес через regex, если есть
+    address_match = re.search(r"(?i)(ул\.|улица|проспект|пер\.|наб\.|дом)\s[^\n,]+", text)
+    address = address_match.group(0) if address_match else "Адрес не указан"
+    
+    flats_list.append({
+        "price": price,
+        "address": address,
+        "lat": None,
+        "lng": None,
+        "link": f"https://t.me/{CHANNEL_USERNAME}/{msg.id}"
+    })
 
     except Exception as e:
         print("Ошибка при парсинге:", e)
