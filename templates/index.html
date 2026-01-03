@@ -2,29 +2,121 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>MyHome - квартиры</title>
+    <title>MyHome - поиск квартир рядом</title>
+
+    <!-- Leaflet CSS и JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #000; color: #fff; }
-        h1 { text-align: center; }
-        #map { width: 90%; height: 400px; margin: 0 auto; background: #222; border-radius: 15px; }
-        .flat { padding: 10px; border-bottom: 1px solid #555; }
-        .flat a { color: #4dd; text-decoration: none; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            background-color: #000;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            align-items: center;
+        }
+        .header {
+            background-color: #1c1c1e;
+            color: #fff;
+            font-size: 2em;
+            font-weight: 600;
+            padding: 15px 30px;
+            border-radius: 25px;
+            margin: 20px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            text-align: center;
+        }
+        #map {
+            width: 90%;
+            height: 50vh;
+            border-radius: 20px;
+            margin-bottom: 20px;
+        }
+        .flats-list {
+            width: 90%;
+            max-width: 800px;
+            background-color: #1c1c1e;
+            border-radius: 15px;
+            padding: 15px 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .flat-item {
+            margin-bottom: 10px;
+        }
+        .footer {
+            background-color: #1c1c1e;
+            color: #fff;
+            font-size: 1em;
+            padding: 15px 25px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .leaflet-popup-content {
+            color: #000;
+        }
     </style>
 </head>
 <body>
-    <h1>MyHome - список квартир</h1>
-    <div id="map">Карта пока статична</div>
+    <div class="header">MyHome - поиск квартир рядом</div>
+    <div id="map"></div>
 
-    <h2>Найденные квартиры:</h2>
-    {% if flats %}
-        {% for f in flats %}
-            <div class="flat">
-                <b>{{ f.price }}</b> — {{ f.address }} — 
-                <a href="{{ f.link }}" target="_blank">Ссылка на Telegram</a>
-            </div>
-        {% endfor %}
-    {% else %}
-        <p>Квартиры не найдены.</p>
-    {% endif %}
+    <div class="flats-list" id="flats-list">
+        <h3>Последние квартиры:</h3>
+        <div id="list-items"></div>
+    </div>
+
+    <div class="footer">
+        Made from Ilya Gorbachevskiy<br>
+        Inst: ilyagorbachevskiy<br>
+        Telegram: @IlyaGorbatevski
+    </div>
+
+    <script>
+        const map = L.map('map').setView([53.9, 27.5667], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        // Показываем геолокацию пользователя
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                map.setView([lat, lng], 14);
+                L.marker([lat, lng]).addTo(map)
+                    .bindPopup("<b>Вы здесь</b>").openPopup();
+            });
+        }
+
+        // Получаем квартиры с API
+        fetch("/api/flats")
+            .then(res => res.json())
+            .then(flats => {
+                const listContainer = document.getElementById("list-items");
+
+                flats.forEach(flat => {
+                    // Если есть координаты, ставим маркер
+                    if (flat.lat && flat.lng) {
+                        L.marker([flat.lat, flat.lng])
+                            .addTo(map)
+                            .bindPopup(`<b>${flat.price}</b><br>${flat.address}<br><a href="${flat.link}" target="_blank">Ссылка</a>`);
+                    }
+
+                    // Добавляем в список под картой
+                    const item = document.createElement("div");
+                    item.className = "flat-item";
+                    item.innerHTML = <b>${flat.price}</b> — ${flat.address} <a href="${flat.link}" target="_blank">Ссылка</a>;
+                    listContainer.appendChild(item);
+                });
+            })
+            .catch(err => console.error("Ошибка загрузки квартир:", err));
+    </script>
 </body>
 </html>
